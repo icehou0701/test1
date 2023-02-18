@@ -1,77 +1,106 @@
 using UnityEngine;
-using UnityEditor;
 using Sirenix.OdinInspector;
-using System.Diagnostics;
+using Sirenix.Utilities.Editor;
 using System.IO;
-using Sirenix.OdinInspector.Editor;
+using UnityEditor;
+using System.Xml;
+using System.Xml.Serialization;
+using System.Collections.Generic;
 
-public class DBKeyWordExportHelper : OdinEditorWindow
+public class DBKeyWordExportHelper : EditorWindow
 {
-    private const string CLIENT_DB_KEYWORD_PATH = "/UnityProj/ClientTool/db_export/cs_client_dbkeyword.xml";
-    private string cs_client_dbkeyword_path;
+    private const string CLIENT_DB_KEYWORD_PATH = @"\UnityProj\ClientTool\db_export\cs_client_dbkeyword.xml";
+    private const string GEN_KEYWORD_TOOL_PATH = @"\Server\protocol\GenKeyWord.bat";
 
-    [Button("Open Directory")]
-    private void OpenDirectory()
+    private static string clientDBKeywordPath = Application.dataPath.Replace("Assets", "") + CLIENT_DB_KEYWORD_PATH;
+    private static string genKeywordToolPath = Application.dataPath.Replace("Assets", "") + GEN_KEYWORD_TOOL_PATH;
+
+    private static string savePath = "";
+    private static string openPath = "";
+
+    private List<MacrosGroup> macrosGroups = new List<MacrosGroup>();
+
+    [MenuItem("Tools/DB Key Word Export Helper")]
+    private static void ShowWindow()
     {
-        if (cs_client_dbkeyword_path == null)
-        {
-            cs_client_dbkeyword_path = Path.Combine(Application.dataPath.Replace("Assets", ""), "UnityProj/ClientTool/db_export/cs_client_dbkeyword.xml");
-        }
+        var window = GetWindow<DBKeyWordExportHelper>();
+        window.titleContent = new GUIContent("DB Key Word Export Helper");
+        window.minSize = new Vector2(500, 300);
+    }
 
-        string directory = Path.GetDirectoryName(cs_client_dbkeyword_path);
-        if (Directory.Exists(directory))
+    [Button(ButtonSizes.Medium)]
+    [HorizontalGroup("File Panel")]
+    private void OpenClientDBKeywordDirectory()
+    {
+        var dirPath = Path.GetDirectoryName(clientDBKeywordPath);
+        openPath = dirPath;
+        EditorUtility.RevealInFinder(dirPath);
+    }
+
+    [Button(ButtonSizes.Medium)]
+    [HorizontalGroup("File Panel")]
+    private void OpenClientDBKeywordFile()
+    {
+        openPath = clientDBKeywordPath;
+        EditorUtility.OpenWithDefaultApp(clientDBKeywordPath);
+    }
+
+    [Button(ButtonSizes.Medium)]
+    [HorizontalGroup("Tool Panel")]
+    private void OpenGenKeywordToolDirectory()
+    {
+        var dirPath = Path.GetDirectoryName(genKeywordToolPath);
+        openPath = dirPath;
+        EditorUtility.RevealInFinder(dirPath);
+    }
+
+    [Button(ButtonSizes.Medium)]
+    [HorizontalGroup("Macro Panel")]
+    private void AddNewMacro()
+    {
+        var groupIndex = UnityEditor.EditorGUILayout.Popup("Group", 0, GetGroupNames());
+        var groupName = GetGroupNames()[groupIndex];
+        var group = GetGroupByName(groupName);
+
+        if (group != null)
         {
-            Process.Start(directory);
-        }
-        else
-        {
-            UnityEngine.Debug.LogError("Directory not exist: " + directory);
+            var newMacro = new Macro();
+            group.Macros.Add(newMacro);
         }
     }
 
-    [Button("Open File")]
-    private void OpenFile()
+    [Button(ButtonSizes.Medium)]
+    [HorizontalGroup("Macro Panel")]
+    private void SaveMacros()
     {
-        if (cs_client_dbkeyword_path == null)
+        XmlSerializer serializer = new XmlSerializer(typeof(MetaLib));
+        using (FileStream stream = new FileStream(clientDBKeywordPath, FileMode.Create))
         {
-            cs_client_dbkeyword_path = Path.Combine(Application.dataPath.Replace("Assets", ""), "UnityProj/ClientTool/db_export/cs_client_dbkeyword.xml");
-        }
-
-        if (File.Exists(cs_client_dbkeyword_path))
-        {
-            Process.Start(cs_client_dbkeyword_path);
-        }
-        else
-        {
-            UnityEngine.Debug.LogError("File not exist: " + cs_client_dbkeyword_path);
+            serializer.Serialize(stream, new MetaLib() { MacrosGroups = macrosGroups });
         }
     }
 
-    [Button("Refresh Path")]
-    private void RefreshPath()
+    protected override void OnGUI()
     {
-        cs_client_dbkeyword_path = Path.Combine(Application.dataPath.Replace("Assets", ""), "UnityProj/ClientTool/db_export/cs_client_dbkeyword.xml");
-    }
+        GUILayout.Label("File Path:", EditorStyles.boldLabel);
+        SirenixEditorGUI.BeginHorizontalToolbar();
+        GUILayout.Label("cs_client_dbkeyword.xml:");
+        GUILayout.Label(clientDBKeywordPath, SirenixGUIStyles.MultiLineLabel);
+        SirenixEditorGUI.EndHorizontalToolbar();
 
-    [PropertyOrder(-1)]
-    [LabelText("cs_client_dbkeyword.xml Path")]
-    [ReadOnly]
-    public string CsClientDbkeywordPath
-    {
-        get
+        GUILayout.Space(20);
+
+        GUILayout.Label("File Operation:", EditorStyles.boldLabel);
+        SirenixEditorGUI.BeginHorizontalToolbar();
+        if (GUILayout.Button("Open Directory"))
         {
-            if (cs_client_dbkeyword_path == null)
-            {
-                RefreshPath();
-            }
-            return cs_client_dbkeyword_path;
+            OpenClientDBKeywordDirectory();
         }
-    }
+        if (GUILayout.Button("Open File"))
+        {
+            OpenClientDBKeywordFile();
+        }
+        SirenixEditorGUI.EndHorizontalToolbar();
 
-    [MenuItem("Tools/DBKeyWord Export Helper")]
-    private static void OpenWindow()
-    {
-        GetWindow<DBKeyWordExportHelper>().Show();
-    }
-}
+        GUILayout.Space(20);
 
