@@ -1,175 +1,105 @@
 using UnityEngine;
-using Sirenix.OdinInspector;
-using Sirenix.Utilities.Editor;
-using System.IO;
 using UnityEditor;
+using System.Diagnostics;
+using System.IO;
 using System.Xml;
-using System.Xml.Serialization;
+using System.Xml.Linq;
 using System.Collections.Generic;
-using Sirenix.OdinInspector.Editor;
+using System.Linq;
 
-public class DBKeyWordExportHelper : OdinEditorWindow
+public class DBKeyWordExportHelper : EditorWindow
 {
-    private const string CLIENT_DB_KEYWORD_PATH = @"\UnityProj\ClientTool\db_export\cs_client_dbkeyword.xml";
-    private const string GEN_KEYWORD_TOOL_PATH = @"\Server\protocol\GenKeyWord.bat";
+    private static readonly string CLIENT_DB_KEYWORD_PATH = "/UnityProj/ClientTool/db_export/cs_client_dbkeyword.xml";
+    private static readonly string GEN_KEYWORD_BAT_PATH = "/Server/protocol/GenKeyWord.bat";
 
-    private string clientDBKeywordFullPath;
-    private string genKeywordToolFullPath;
+    private static readonly string CLIENT_DB_KEYWORD_FULL_PATH =
+        Path.Combine(Application.dataPath.Replace("Assets", ""), CLIENT_DB_KEYWORD_PATH);
+    private static readonly string GEN_KEYWORD_BAT_FULL_PATH =
+        Path.Combine(Application.dataPath.Replace("Assets", ""), GEN_KEYWORD_BAT_PATH);
 
-    private List<MacrosGroup> macrosGroups = new List<MacrosGroup>();
+    private Vector2 scrollPosition = Vector2.zero;
+    private string selectedMacroGroupName = "";
+    private string newMacroName = "";
+    private string newMacroValue = "";
+    private string newMacroDesc = "";
 
-    [MenuItem("Tools/DB Key Word Export Helper")]
-    private static void ShowWindow()
+    private bool isInit = false;
+    private List<XElement> macroGroupElements;
+
+    [MenuItem("Tools/DBKeywordExportHelper")]
+    static void Init()
     {
-        var window = GetWindow<DBKeyWordExportHelper>();
-        window.titleContent = new GUIContent("DB Key Word Export Helper");
-        window.minSize = new Vector2(500, 300);
+        DBKeyWordExportHelper window = (DBKeyWordExportHelper)EditorWindow.GetWindow(typeof(DBKeyWordExportHelper));
+        window.Show();
+        window.InitMacroGroupElements();
     }
 
-    private void OnEnable()
+    void InitMacroGroupElements()
     {
-        clientDBKeywordFullPath = Path.Combine(Application.dataPath.Replace("Assets", ""), CLIENT_DB_KEYWORD_PATH);
-        genKeywordToolFullPath = Path.Combine(Application.dataPath.Replace("Assets", ""), GEN_KEYWORD_TOOL_PATH);
-    }
-
-    [Button(ButtonSizes.Large)]
-    [InfoBox("打开DBKeyword目录")]
-    private void OpenClientDBKeywordDir()
-    {
-        EditorUtility.RevealInFinder(clientDBKeywordFullPath);
-    }
-
-    [Button(ButtonSizes.Large)]
-    [InfoBox("打开DBKeyword文件")]
-    private void OpenClientDBKeywordFile()
-    {
-        EditorUtility.RevealInFinder(clientDBKeywordFullPath);
-    }
-
-    [Button(ButtonSizes.Large)]
-    [InfoBox("打开GenKeyWord.bat目录")]
-    private void OpenGenKeyWordToolDir()
-    {
-        EditorUtility.RevealInFinder(genKeywordToolFullPath);
-    }
-    
-    [ShowInInspector]
-    [PropertySpace(10)]
-    [InfoBox("Client DB Keyword Path")]
-    private string ClientDBKeywordPath
-    {
-        get => clientDBKeywordFullPath;
-        set { }
-    }
-
-    [ShowInInspector]
-    [PropertySpace(10)]
-    [InfoBox("Gen Keyword Tool Path")]
-    private string GenKeywordToolPath
-    {
-        get => genKeywordToolFullPath;
-        set { }
-    }
-
-    [Button(ButtonSizes.Medium)]
-    [HorizontalGroup("Macro Panel")]
-    private void AddNewMacro()
-    {
-        var groupIndex = UnityEditor.EditorGUILayout.Popup("Group", 0, GetGroupNames());
-        var groupName = GetGroupNames()[groupIndex];
-        var group = GetGroupByName(groupName);
-
-        if (group != null)
+        XDocument doc = XDocument.Load(CLIENT_DB_KEYWORD_FULL_PATH);
+        macroGroupElements = doc.Root.Elements("macrosgroup").ToList();
+        if (macroGroupElements.Count > 0)
         {
-            var newMacro = new Macro();
-            group.Macros.Add(newMacro);
+            selectedMacroGroupName = macroGroupElements[0].Attribute("name").Value;
         }
     }
 
-    [Button(ButtonSizes.Medium)]
-    [HorizontalGroup("Macro Panel")]
-    private void SaveMacros()
+    void OnGUI()
     {
-        XmlSerializer serializer = new XmlSerializer(typeof(MetaLib));
-        using (FileStream stream = new FileStream(clientDBKeywordPath, FileMode.Create))
+        if (!isInit)
         {
-            serializer.Serialize(stream, new MetaLib() {MacrosGroups = macrosGroups});
-        }
-    }
-
-    protected override void OnGUI()
-    {
-        GUILayout.Label("File Path:", EditorStyles.boldLabel);
-        SirenixEditorGUI.BeginHorizontalToolbar();
-        GUILayout.Label("cs_client_dbkeyword.xml:");
-        GUILayout.Label(clientDBKeywordPath, SirenixGUIStyles.MultiLineLabel);
-        SirenixEditorGUI.EndHorizontalToolbar();
-
-        GUILayout.Space(20);
-
-        GUILayout.Label("File Operation:", EditorStyles.boldLabel);
-        SirenixEditorGUI.BeginHorizontalToolbar();
-        if (GUILayout.Button("Open Directory"))
-        {
-            OpenClientDBKeywordDirectory();
+            InitMacroGroupElements();
+            isInit = true;
         }
 
-        if (GUILayout.Button("Open File"))
+        GUILayout.Label("cs_client_dbkeyword.xml Path: " + CLIENT_DB_KEYWORD_FULL_PATH);
+        GUILayout.Label("GenKeyWord.bat Path: " + GEN_KEYWORD_BAT_FULL_PATH);
+        EditorGUILayout.Space();
+
+        if (GUILayout.Button("Open DBKeyword Export Directory"))
         {
-            OpenClientDBKeywordFile();
-        }
-
-        SirenixEditorGUI.EndHorizontalToolbar();
-
-        GUILayout.Space(20);
-
-    }
-    
-    [OnInspectorGUI]
-    private void DrawMacroGroup()
-    {
-        GUILayout.Space(20);
-        EditorGUILayout.LabelField("Macro Groups", EditorStyles.boldLabel);
-
-        foreach (var group in groups)
-        {
-            GUILayout.Space(10);
-            EditorGUILayout.LabelField($"{group.name}: {group.desc}", EditorStyles.boldLabel);
-
-            foreach (var macro in group.macros)
+            string directory = Path.Combine(Application.dataPath.Replace("Assets", ""), "/UnityProj/ClientTool/db_export");
+            if (Directory.Exists(directory))
             {
-                EditorGUILayout.LabelField(macro.ToString());
-            }
-
-            if (GUILayout.Button($"Add new macro to {group.name}"))
-            {
-                group.macros.Add(new Macro());
+                Process.Start(directory);
             }
         }
 
-        GUILayout.Space(10);
-        if (GUILayout.Button("Save to XML"))
+        if (GUILayout.Button("Open DBKeyword File"))
         {
-            SaveToXml();
-        }
-    }
-
-    private void SaveToXml()
-    {
-        XElement metalib = new XElement("metalib", new XAttribute("tagsetversion", "1"),
-            new XAttribute("name", "protocol"), new XAttribute("version", "1"));
-
-        foreach (var group in groups)
-        {
-            XElement macrosgroup = new XElement("macrosgroup", new XAttribute("name", group.name),
-                new XAttribute("desc", group.desc));
-
-            foreach (var macro in group.macros)
+            if (File.Exists(CLIENT_DB_KEYWORD_FULL_PATH))
             {
-                XElement macroElem = new XElement("macro", new XAttribute("name", macro.name),
-                    new XAttribute("value", macro.value), new XAttribute("desc", macro.desc));
-
+                EditorUtility.OpenWithDefaultApp(CLIENT_DB_KEYWORD_FULL_PATH);
             }
         }
-    }
-}
+
+        if (GUILayout.Button("Open GenKeyWord.bat Directory"))
+        {
+            string directory = Path.Combine(Application.dataPath.Replace("Assets", ""), "/Server/protocol");
+            if (Directory.Exists(directory))
+            {
+                Process.Start(directory);
+            }
+        }
+
+        EditorGUILayout.Space();
+        scrollPosition = EditorGUILayout.BeginScrollView(scrollPosition);
+
+        EditorGUILayout.BeginHorizontal();
+        GUILayout.Label("Macro Group List:");
+        if (macroGroupElements.Count > 0)
+        {
+            List<string> macroGroupNames = macroGroupElements.Select(x => x.Attribute("name").Value).ToList();
+            int selectedIndex = macroGroupNames.IndexOf(selectedMacroGroupName);
+            int newSelectedIndex = EditorGUILayout.Popup(selectedIndex, macroGroupNames.ToArray());
+            if (newSelectedIndex != selectedIndex)
+            {
+                selectedMacroGroupName = macroGroupNames[newSelectedIndex];
+            }
+        }
+        EditorGUILayout.EndHorizontal();
+
+        EditorGUILayout.Space();
+
+        XElement selectedMacroGroup = macroGroupElements.FirstOrDefault(x => x.Attribute("name").Value == selectedMacroGroupName);
+       
