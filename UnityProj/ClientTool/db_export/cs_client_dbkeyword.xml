@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<metalib tagsetversion="1" name="protocol" version="1">
+ <macrosgroup name="macrosgroup1name" desc="macrosgroup1Desc @ name=macrosgroup1name">
+        <macro name="ENUM1" value="0" desc="name=ENUM1 @ cname=枚举1 @ display=枚举1描述"/>
+        <macro name="ENUM2" value="1" desc="name=ENUM2 @ cname=枚举2 @ display=枚举2描述"/>
+        <macro name="ENUM3" value="2" desc="name=ENUM2 @ cname=枚举3 @ display=枚举3描述"/>
+</macrosgroup>
+<macrosgroup name="macrosgroup2name" desc="macrosgroup2Desc @ name=macrosgroup2name">
+        <macro name="ENUM1" value="0" desc="name=ENUM1 @ cname=枚举1 @ display=枚举1描述"/>
+        <macro name="ENUM2" value="1" desc="name=ENUM2 @ cname=枚举2 @ display=枚举2描述"/>
+        <macro name="ENUM3" value="2" desc="name=ENUM2 @ cname=枚举3 @ display=枚举3描述"/>
+</macrosgroup>
+</metalib>
